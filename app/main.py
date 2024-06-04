@@ -7,7 +7,7 @@ from flask import (
     url_for,
     flash
 )
-from flask_login import LoginManager, current_user, login_required
+from flask_login import LoginManager, current_user, login_required, logout_user
 
 from models import Users
 from forms import AutorizationForm, RegistrationForm
@@ -140,7 +140,9 @@ def set_new_password():
 @app.route('/logout')
 @login_required
 def logout():
-    pass
+    logout_user()
+    flash('Вы вышли из своего профиля')
+    redirect(url_for('index'))
 
 
 if __name__ == "__main__":
