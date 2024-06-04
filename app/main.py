@@ -12,6 +12,7 @@ from flask_login import LoginManager, current_user, login_required
 from models import Users
 from forms import AutorizationForm, RegistrationForm
 from db_config import session
+from sg_maillib import SG_mail
 
 
 app = Flask(__name__)
@@ -19,6 +20,8 @@ app.config['SECRET_KEY'] = 'b\\x18*\xef}\xe6\xf0\xacjXk!,\ty\tH\x14\xf6u\xc4\xcd
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'autorization'
+
+mail = SG_mail()
 
 
 @login_manager.user_loader
@@ -53,29 +56,68 @@ def registration():
     if request.method == 'POST':
         if form.validate_on_submit():
             email = request.form['email']
-            tg =  request.form['tg']
+            tg = request.form['tg']
             phone = request.form['email']
             name = request.form['email']
             surname = request.form['email']
             password = request.form['email']
-            if Users.query.filter_by(email=email).first():
+            a_code = mail.generate_unique_id(16)
+            if session.query(Users).filter_by(email=email).first():
                 flash(
                     f'Пользователь с почтой {email} уже существует',
                     'warning'
                 )
-                return render_template('autorization.html')
-            if Users.query.filter_by(tg_username=tg).first():
+                return render_template('registration.html')
+            elif session.query(Users).filter_by(tg_username=tg).first():
                 flash(
                     f'Пользователь с telegram ником {tg} уже существует',
                     'warning'
                 )
+                return render_template('registration.html')
+            elif session.query(Users).filter_by(phone=phone).first():
+                flash(
+                    f'Пользователь с номером {phone} уже существует',
+                    'warning'
+                )
+                return render_template('registration.html')
+            else:
+                new_user = Users(
+                    email=email,
+                    phone=phone,
+                    tg_username=tg,
+                    name=name,
+                    surname=surname,
+                    password=password,
+                    a_code=a_code
+                )
+            session.add(new_user)
+            session.commit()
+            body_text = " Ссылка для активации аккаунта: https://profitomer.ru/activation?code=" + a_code
+            mail.send_email("Profitomer.ru активация аккаунта", request.form['email'], body_text)
+            return render_template('div_after_registration.html', email=request.form['email'])
+    if request.method == 'GET':
+        return render_template('registration.html')
 
 
 
 
 @app.route("/activation", methods=['GET', 'POST'])
 def activation():
-    pass
+    if request.args.get('code'):
+        try:
+            a_code = request.args.get('code')
+            user = session.query(Users).filter_by(a_code=a_code).first()
+            if user:
+                user.active = 1
+                session.add(user)
+                session.commit
+                return "Активация аккаунта прошла успешно!<br> <a href='/'>Перейти в личный кабинет</a>"
+            else:
+                return "Некорректный код активации"
+        except Exception as error:
+            return f'Ошибка запроса данных! {error}'
+    else:
+        return "Некорректный запрос."
 
 
 @app.route('/tax_rate_change', methods=['POST'])
