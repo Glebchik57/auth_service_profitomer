@@ -7,7 +7,7 @@ from flask import (
     url_for,
     flash
 )
-from flask_login import LoginManager, current_user, login_required, logout_user
+from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 
 from models import Users
 from forms import AutorizationForm, RegistrationForm
@@ -39,15 +39,17 @@ def index():
 def autorization():
     form = AutorizationForm()
     if form.validate_on_submit():
-        email = form.email.data
-        password = form.password.data
-        print(email)
-        print(password)
-        # здесь логика базы данных
-        print("\nData received. Now redirecting ...")
+        email = request.form['email']
+        password = request.form['password']
+        user = session.query(Users).filter_by(email=email).first()
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('index'))
+        else:
+            flash('Неверный email или пароль.')
+            return redirect(url_for('autorization'))
+    else:
         return redirect(url_for('autorization'))
-
-    return render_template('autorization.html', form=form)
 
 
 @app.route("/registration", methods=['GET', 'POST'])
