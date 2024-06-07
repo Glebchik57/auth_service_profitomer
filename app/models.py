@@ -1,5 +1,4 @@
 import sqlalchemy as db
-from werkzeug.security import (generate_password_hash, check_password_hash)
 from flask_login import UserMixin
 
 from db_config import Base, engine
@@ -22,14 +21,6 @@ class Users(Base, UserMixin):
     a_code = db.Column(db.Text)
     wb_token = db.Column(db.Text)
     tax_rate = db.Column(db.Integer)
-
-    def set_password(self, password):
-        '''Установка хэша пароля'''
-        self.password = generate_password_hash(password)
-
-    def check_password(self, password):
-        '''Проверка хэша пароля'''
-        return check_password_hash(self.password, password)
 
 
 class Sessions(Base):
