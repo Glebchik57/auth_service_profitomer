@@ -1,15 +1,8 @@
-import os
 import sqlalchemy as db
-from sqlalchemy import and_
-from dotenv import load_dotenv
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.expression import func
-from sqlalchemy.orm import sessionmaker
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin, LoginManager
+from werkzeug.security import (generate_password_hash, check_password_hash)
+from flask_login import UserMixin
 
-load_dotenv()
-Base = declarative_base()
+from db_config import Base, engine
 
 
 class Users(Base, UserMixin):
@@ -22,7 +15,7 @@ class Users(Base, UserMixin):
     phone = db.Column(db.BigInteger, nullable=False)
     name = db.Column(db.String(100), nullable=False)
     surname = db.Column(db.String(100), nullable=False)
-    password = db.Column(db.String(60), nullable=False)
+    password = db.Column(db.String(200), nullable=False)
     active = db.Column(db.SmallInteger)
     date_start = db.Column(db.Integer)
     date_end = db.Column(db.Integer)
@@ -47,3 +40,6 @@ class Sessions(Base):
     ip = db.Column(db.Integer, nullable=False)
     date_start = db.Column(db.Integer)
     date_end = db.Column(db.Integer)
+
+
+Base.metadata.create_all(engine)
