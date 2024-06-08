@@ -148,7 +148,7 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route('/tax_rate_change', methods=['POST'])
+@app.route('/tax_rate_change', methods=['GET', 'POST'])
 @login_required
 def change_tax_rate():
     form = TaxRateForm()
@@ -160,7 +160,6 @@ def change_tax_rate():
             return redirect(url_for('index'))
     else:
         return render_template('tax_rate_change.html', form=form)
-    
 
 
 @app.route("/change_password", methods=['GET', 'POST'])
@@ -206,9 +205,9 @@ def set_new_password():
                 return redirect(url_for('autorization'))
             else:
                 flash(f'Пользователя с email {email} не существует')
-                render_template('set_new_password.html', form=form)
+                return render_template('set_new_password.html', form=form)
     else:
-        render_template('set_new_password.html', form=form)
+        return render_template('set_new_password.html', form=form)
 
 
 if __name__ == "__main__":
