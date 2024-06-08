@@ -2,7 +2,7 @@ from collections.abc import Sequence
 import re
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField
+from wtforms import StringField, PasswordField, IntegerField
 from wtforms.validators import Email
 from wtforms.validators import ValidationError
 
@@ -32,3 +32,17 @@ class RegistrationForm(FlaskForm):
         clear_nickname = field.data[1:]
         if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]+$', clear_nickname):
             raise ValidationError('Никнейм должен состоять из латинских букв')
+
+
+class ChangePasswordForm(FlaskForm):
+    old_password = PasswordField('Old Password: ')
+    new_password = PasswordField('New Password: ')
+    rp_new_password = PasswordField('Repeat New Password: ')
+
+
+class SetPasswordForm(FlaskForm):
+    email = StringField("Email: ", validators=[Email()])
+
+
+class TaxRateForm(FlaskForm):
+    tax_rate = IntegerField('Tax Rate: ')
