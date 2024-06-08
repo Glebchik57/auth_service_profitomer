@@ -12,7 +12,7 @@ from werkzeug.security import (generate_password_hash, check_password_hash)
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 
 from models import Users
-from forms import AutorizationForm, RegistrationForm
+from forms import AutorizationForm, RegistrationForm, ChangePasswordForm, SetPasswordForm
 from db_config import session
 from sg_maillib import SG_mail
 
@@ -51,17 +51,21 @@ def autorization():
         if not user:
             flash('Неверный email.')
             return redirect(url_for('autorization'))
-        if check_password_hash(user.password, password):
-            login_user(user)
-            return redirect(url_for('index'))
-        else:
-            flash('Неверный пароль.')
+        if user.active != 1:
+            flash('Ваш аккаунт не активирован. Проверьте почту')
             return redirect(url_for('autorization'))
+        else:
+            if check_password_hash(user.password, password):
+                login_user(user)
+                return redirect(url_for('index'))
+            else:
+                flash('Неверный пароль.')
+                return redirect(url_for('autorization'))
     else:
         return render_template('autorization.html', form=form)
 
 
-@app.route("/registration", methods=['GET', 'POST']) #хэширование пароля
+@app.route("/registration", methods=['GET', 'POST'])
 def registration():
     form = RegistrationForm()
     if request.method == 'POST':
@@ -107,9 +111,9 @@ def registration():
                     body_text = " Ссылка для активации аккаунта: https://profitomer.ru/activation?code=" + a_code
                     mail.send_email("Profitomer.ru активация аккаунта", email, body_text)
                     return render_template('div_after_registration.html', email=email)
-                except Exception as error:
+                except Exception:
                     session.rollback()
-                    flash(f'Ошибка регистрации: {error}', 'danger')
+                    flash('Ошибка регистрации', 'danger')
                     return render_template('registration.html', form=form)
     else:
         return render_template('registration.html', form=form)
@@ -153,12 +157,52 @@ def change_tax_rate():
 @app.route("/change_password", methods=['GET', 'POST'])
 @login_required
 def change_password():
-    pass
+    form = ChangePasswordForm()
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            user = current_user
+            old_password = form.old_password.data
+            new_password = form.new_password.data
+            rp_new_password = form.rp_new_password.data
+            if not check_password_hash(user.password, old_password):
+                flash('Введенный пароль не соответствует текущему')
+                return redirect(url_for('change_password'))
+            elif new_password != rp_new_password:
+                flash(
+                    'Повторно ввыеденный пароль не соответсвует новому паролю'
+                )
+                return redirect(url_for('change_password'))
+            else:
+                user.password = generate_password_hash(new_password)
+                session.commit()
+                return redirect(url_for('index'))
+    else:
+        return render_template('change_password.html', form=form)
+    
+
+
 
 
 @app.route('/new-password', methods=['GET', 'POST'])
 def set_new_password():
-    pass
+    form = SetPasswordForm()
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            email = form.email.data
+            if session.query(Users).filter_by(email=email).first() is not None:
+                user = session.query(Users).filter_by(email=email).first()
+                new_password = mail.generate_unique_id(8)
+                user.password = generate_password_hash(new_password)
+                session.commit()
+                body_text = f'Ваш новый пароль: {new_password}'
+                mail.send_email("Profitomer.ru смена пароля", email, body_text)
+                flash('Пароль был успешно изменен')
+                return redirect(url_for('autorization'))
+            else:
+                flash(f'Пользователя с email {email} не существует')
+                render_template('set_new_password.html', form=form)
+    else:
+        render_template('set_new_password.html', form=form)
 
 
 if __name__ == "__main__":
