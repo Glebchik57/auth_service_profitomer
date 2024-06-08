@@ -12,7 +12,7 @@ from werkzeug.security import (generate_password_hash, check_password_hash)
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 
 from models import Users
-from forms import AutorizationForm, RegistrationForm, ChangePasswordForm, SetPasswordForm
+from forms import AutorizationForm, RegistrationForm, ChangePasswordForm, SetPasswordForm, TaxRateForm
 from db_config import session
 from sg_maillib import SG_mail
 
@@ -151,7 +151,16 @@ def logout():
 @app.route('/tax_rate_change', methods=['POST'])
 @login_required
 def change_tax_rate():
-    pass
+    form = TaxRateForm()
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            user = current_user
+            user.tax_rate = form.tax_rate.data
+            session.commit()
+            return redirect(url_for('index'))
+    else:
+        return render_template('tax_rate_change.html', form=form)
+    
 
 
 @app.route("/change_password", methods=['GET', 'POST'])
@@ -178,9 +187,6 @@ def change_password():
                 return redirect(url_for('index'))
     else:
         return render_template('change_password.html', form=form)
-    
-
-
 
 
 @app.route('/new-password', methods=['GET', 'POST'])
