@@ -1,19 +1,26 @@
 # -*- coding: utf-8 -*-
 """Send email via smtp_host."""
+import os
 import smtplib
 from email.mime.text import MIMEText
-from email.header    import Header
+from email.header import Header
 import string
 import random
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 
 class SG_mail:
     """Class for e-mail """
 
     def send_email(self, subject, to_addr, body_text):
 
-        smtp_host = "smtp.yandex.ru:465"
-        login = "support@profitomer.ru"
-        password ="fekbeltodler4477+"
+        smtp_host = os.getenv('SMPT_HOST')
+        login = os.getenv('LOGIN')
+        password = os.getenv('MAIL_PASSWORD')
 
         msg = MIMEText(body_text, 'plain', 'utf-8')
         msg['Subject'] = Header(subject, 'utf-8')

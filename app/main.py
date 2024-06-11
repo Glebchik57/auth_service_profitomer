@@ -1,3 +1,5 @@
+import os
+
 from flask import (
     Flask,
     redirect,
@@ -8,8 +10,8 @@ from flask import (
     flash
 )
 from werkzeug.security import (generate_password_hash, check_password_hash)
-
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
+from dotenv import load_dotenv
 
 from models import Users
 from forms import AutorizationForm, RegistrationForm, ChangePasswordForm, SetPasswordForm, TaxRateForm
@@ -17,8 +19,11 @@ from db_config import session
 from sg_maillib import SG_mail
 
 
+load_dotenv()
+
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'b\\x18*\xef}\xe6\xf0\xacjXk!,\ty\tH\x14\xf6u\xc4\xcd\xa2\x99.'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'autorization'
