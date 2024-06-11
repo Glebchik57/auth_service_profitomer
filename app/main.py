@@ -33,12 +33,14 @@ mail = SG_mail()
 
 @login_manager.user_loader
 def load_user(users_id):
+    '''Загрузка пользователя по идентификатору'''
     return session.query(Users).get(users_id)
 
 
 @app.route('/')
 @login_required
 def index():
+    '''Тестовое представления главной страницы'''
     try:
         user = current_user.name
         return render_template('base_template.html', name=user)
@@ -48,23 +50,24 @@ def index():
 
 @app.route("/autorization", methods=['GET', 'POST'])
 def autorization():
+    '''Представление авторизации'''
     form = AutorizationForm()
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
         user = session.query(Users).filter_by(email=email).first()
         if not user:
-            flash('Неверный email.')
+            flash('Неверный email.', 'warning')
             return redirect(url_for('autorization'))
         if user.active != 1:
-            flash('Ваш аккаунт не активирован. Проверьте почту')
+            flash('Ваш аккаунт не активирован. Проверьте почту', 'warning')
             return redirect(url_for('autorization'))
         else:
             if check_password_hash(user.password, password):
                 login_user(user)
                 return redirect(url_for('index'))
             else:
-                flash('Неверный пароль.')
+                flash('Неверный пароль.', 'warning')
                 return redirect(url_for('autorization'))
     else:
         return render_template('autorization.html', form=form)
@@ -72,6 +75,7 @@ def autorization():
 
 @app.route("/registration", methods=['GET', 'POST'])
 def registration():
+    '''Представление регистрации'''
     form = RegistrationForm()
     if request.method == 'POST':
         if form.validate_on_submit():
@@ -118,7 +122,7 @@ def registration():
                     return render_template('div_after_registration.html', email=email)
                 except Exception:
                     session.rollback()
-                    flash('Ошибка регистрации', 'danger')
+                    flash('Ошибка базы данных. Попробуйте позже', 'error')
                     return render_template('registration.html', form=form)
     else:
         return render_template('registration.html', form=form)
@@ -128,19 +132,21 @@ def registration():
 
 @app.route("/activation", methods=['GET', 'POST'])
 def activation():
+    '''Представление активации аккаунта пользователя'''
     if request.args.get('code'):
-        try:
-            a_code = request.args.get('code')
-            user = session.query(Users).filter_by(a_code=a_code).first()
-            if user:
+        a_code = request.args.get('code')
+        user = session.query(Users).filter_by(a_code=a_code).first()
+        if user:
+            try:
                 user.active = 1
                 session.add(user)
                 session.commit()
                 return "Активация аккаунта прошла успешно!<br> <a href='/'>Перейти в личный кабинет</a>"
-            else:
-                return "Некорректный код активации"
-        except Exception as error:
-            return f'Ошибка запроса данных! {error}'
+            except Exception:
+                session.rollback()
+                return f'Ошибка базы данных'
+        else:
+            return "Некорректный код активации"
     else:
         return "Некорректный запрос."
 
@@ -148,21 +154,27 @@ def activation():
 @app.route('/logout')
 @login_required
 def logout():
+    '''Представление выхода из профиля'''
     logout_user()
-    flash('Вы вышли из своего профиля')
+    flash('Вы вышли из своего профиля', 'info')
     return redirect(url_for('index'))
 
 
 @app.route('/tax_rate_change', methods=['GET', 'POST'])
 @login_required
 def change_tax_rate():
+    '''Представление изменения налоговой ставки'''
     form = TaxRateForm()
     if request.method == 'POST':
         if form.validate_on_submit():
-            user = current_user
-            user.tax_rate = form.tax_rate.data
-            session.commit()
-            return redirect(url_for('index'))
+            try:
+                user = current_user
+                user.tax_rate = form.tax_rate.data
+                session.commit()
+                return redirect(url_for('index'))
+            except Exception:
+                flash('Ошибка базы данных', 'error')
+                return redirect(url_for('change_tax_rate'))
     else:
         return render_template('tax_rate_change.html', form=form)
 
@@ -186,9 +198,13 @@ def change_password():
                 )
                 return redirect(url_for('change_password'))
             else:
-                user.password = generate_password_hash(new_password)
-                session.commit()
-                return redirect(url_for('index'))
+                try:
+                    user.password = generate_password_hash(new_password)
+                    session.commit()
+                    return redirect(url_for('index'))
+                except Exception:
+                    flash('Ошибка базы данных', 'error')
+                    return redirect(url_for('change_password'))
     else:
         return render_template('change_password.html', form=form)
 
@@ -200,14 +216,18 @@ def set_new_password():
         if form.validate_on_submit():
             email = form.email.data
             if session.query(Users).filter_by(email=email).first() is not None:
-                user = session.query(Users).filter_by(email=email).first()
-                new_password = mail.generate_unique_id(8)
-                user.password = generate_password_hash(new_password)
-                session.commit()
-                body_text = f'Ваш новый пароль: {new_password}'
-                mail.send_email("Profitomer.ru смена пароля", email, body_text)
-                flash('Пароль был успешно изменен')
-                return redirect(url_for('autorization'))
+                try:
+                    user = session.query(Users).filter_by(email=email).first()
+                    new_password = mail.generate_unique_id(8)
+                    user.password = generate_password_hash(new_password)
+                    session.commit()
+                    body_text = f'Ваш новый пароль: {new_password}'
+                    mail.send_email("Profitomer.ru смена пароля", email, body_text)
+                    flash('Пароль был успешно изменен')
+                    return redirect(url_for('autorization'))
+                except Exception:
+                    flash('Ошибка базы данных', 'error')
+                    return redirect(url_for('set_new_password'))
             else:
                 flash(f'Пользователя с email {email} не существует')
                 return render_template('set_new_password.html', form=form)
