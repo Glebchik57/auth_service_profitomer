@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from flask import (
     Flask,
@@ -13,10 +14,11 @@ from werkzeug.security import (generate_password_hash, check_password_hash)
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 from dotenv import load_dotenv
 
-from models import Users
+from models import Users, Sessions
 from forms import AutorizationForm, RegistrationForm, ChangePasswordForm, SetPasswordForm, TaxRateForm
 from db_config import session
 from sg_maillib import SG_mail
+import auth
 
 
 load_dotenv()
@@ -52,80 +54,86 @@ def index():
 def autorization():
     '''Представление авторизации'''
     form = AutorizationForm()
-    if form.validate_on_submit():
-        email = form.email.data
-        password = form.password.data
-        user = session.query(Users).filter_by(email=email).first()
-        if not user:
-            flash('Неверный email.', 'warning')
-            return redirect(url_for('autorization'))
-        if user.active != 1:
-            flash('Ваш аккаунт не активирован. Проверьте почту', 'warning')
-            return redirect(url_for('autorization'))
-        else:
-            if check_password_hash(user.password, password):
-                login_user(user)
-                return redirect(url_for('index'))
-            else:
-                flash('Неверный пароль.', 'warning')
-                return redirect(url_for('autorization'))
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
     else:
-        return render_template('autorization.html', form=form)
+        if form.validate_on_submit():
+            email = form.email.data
+            password = form.password.data
+            user = session.query(Users).filter_by(email=email).first()
+            if not user:
+                flash('Неверный email.', 'warning')
+                return redirect(url_for('autorization'))
+            if user.active != 1:
+                flash('Ваш аккаунт не активирован. Проверьте почту', 'warning')
+                return redirect(url_for('autorization'))
+            else:
+                if check_password_hash(user.password, password):
+                    login_user(user, remember=True)
+                    return redirect(url_for('index'))
+                else:
+                    flash('Неверный пароль.', 'warning')
+                    return redirect(url_for('autorization'))
+        else:
+            return render_template('autorization.html', form=form)
 
 
 @app.route("/registration", methods=['GET', 'POST'])
 def registration():
     '''Представление регистрации'''
     form = RegistrationForm()
-    if request.method == 'POST':
-        if form.validate_on_submit():
-            email = form.email.data
-            tg = form.tg.data
-            phone = form.phone.data
-            name = form.name.data
-            surname = form.surname.data
-            password = form.password.data
-            a_code = mail.generate_unique_id(16)
-            if session.query(Users).filter_by(email=email).first():
-                flash(
-                    f'Пользователь с почтой {email} уже существует',
-                    'warning'
-                )
-                return render_template('registration.html', form=form)
-            elif session.query(Users).filter_by(tg_username=tg).first():
-                flash(
-                    f'Пользователь с telegram ником {tg} уже существует',
-                    'warning'
-                )
-                return render_template('registration.html', form=form)
-            elif session.query(Users).filter_by(phone=phone).first():
-                flash(
-                    f'Пользователь с номером {phone} уже существует',
-                    'warning'
-                )
-                return render_template('registration.html', form=form)
-            else:
-                try:
-                    new_user = Users(
-                        email=email,
-                        phone=phone,
-                        tg_username=tg,
-                        name=name,
-                        surname=surname,
-                        password=generate_password_hash(password),
-                        a_code=a_code
-                    )
-                    session.add(new_user)
-                    session.commit()
-                    body_text = " Ссылка для активации аккаунта: https://profitomer.ru/activation?code=" + a_code
-                    mail.send_email("Profitomer.ru активация аккаунта", email, body_text)
-                    return render_template('div_after_registration.html', email=email)
-                except Exception:
-                    session.rollback()
-                    flash('Ошибка базы данных. Попробуйте позже', 'error')
-                    return render_template('registration.html', form=form)
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
     else:
-        return render_template('registration.html', form=form)
+        if request.method == 'POST':
+            if form.validate_on_submit():
+                email = form.email.data
+                tg = form.tg.data
+                phone = form.phone.data
+                name = form.name.data
+                surname = form.surname.data
+                password = form.password.data
+                a_code = mail.generate_unique_id(16)
+                if session.query(Users).filter_by(email=email).first():
+                    flash(
+                        f'Пользователь с почтой {email} уже существует',
+                        'warning'
+                    )
+                    return render_template('registration.html', form=form)
+                elif session.query(Users).filter_by(tg_username=tg).first():
+                    flash(
+                        f'Пользователь с telegram ником {tg} уже существует',
+                        'warning'
+                    )
+                    return render_template('registration.html', form=form)
+                elif session.query(Users).filter_by(phone=phone).first():
+                    flash(
+                        f'Пользователь с номером {phone} уже существует',
+                        'warning'
+                    )
+                    return render_template('registration.html', form=form)
+                else:
+                    try:
+                        new_user = Users(
+                            email=email,
+                            phone=phone,
+                            tg_username=tg,
+                            name=name,
+                            surname=surname,
+                            password=generate_password_hash(password),
+                            a_code=a_code
+                        )
+                        session.add(new_user)
+                        session.commit()
+                        body_text = " Ссылка для активации аккаунта: https://profitomer.ru/activation?code=" + a_code
+                        mail.send_email("Profitomer.ru активация аккаунта", email, body_text)
+                        return render_template('div_after_registration.html', email=email)
+                    except Exception:
+                        session.rollback()
+                        flash('Ошибка базы данных. Попробуйте позже', 'error')
+                        return render_template('registration.html', form=form)
+        else:
+            return render_template('registration.html', form=form)
 
 
 
@@ -144,7 +152,7 @@ def activation():
                 return "Активация аккаунта прошла успешно!<br> <a href='/'>Перейти в личный кабинет</a>"
             except Exception:
                 session.rollback()
-                return f'Ошибка базы данных'
+                return 'Ошибка базы данных'
         else:
             return "Некорректный код активации"
     else:
