@@ -28,9 +28,9 @@ class Sessions(Base):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
-    ip = db.Column(db.Integer, nullable=False)
-    date_start = db.Column(db.Integer)
-    date_end = db.Column(db.Integer)
+    ip = db.Column(db.String(45), nullable=False)
+    date_start = db.Column(db.DateTime, nullable=False)
+    date_end = db.Column(db.DateTime, nullable=True)
 
 
 Base.metadata.create_all(engine)
