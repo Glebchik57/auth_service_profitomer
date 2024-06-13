@@ -1,24 +1,49 @@
+'''Модуль содержит основную логику работы приложения.
+Включает в себя маршруты для:
+-перехода на главную страницу(необходим для тестирования);
+-регистрации пользователей;
+-авторизации пользователей;
+-смены пароля профиля зная существующий пароль;
+-смены пароля профиля не знаю существующего пароля;
+-активации профиля;
+-выхода из профиля;
+-изменение величины налоговой ставки'''
+
 import os
-import datetime
+import time
+import ipaddress
 
 from flask import (
     Flask,
     redirect,
     render_template,
     request,
-    session,
     url_for,
     flash
 )
-from werkzeug.security import (generate_password_hash, check_password_hash)
-from flask_login import LoginManager, current_user, login_user, login_required, logout_user
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_user,
+    login_required,
+    logout_user
+)
 from dotenv import load_dotenv
 
 from models import Users, Sessions
-from forms import AutorizationForm, RegistrationForm, ChangePasswordForm, SetPasswordForm, TaxRateForm
+from forms import (
+    AutorizationForm,
+    RegistrationForm,
+    ChangePasswordForm,
+    SetPasswordForm,
+    TaxRateForm
+)
 from db_config import session
 from sg_maillib import SG_mail
-import auth
 
 
 load_dotenv()
@@ -36,6 +61,7 @@ mail = SG_mail()
 @login_manager.user_loader
 def load_user(users_id):
     '''Загрузка пользователя по идентификатору'''
+
     return session.query(Users).get(users_id)
 
 
@@ -43,16 +69,25 @@ def load_user(users_id):
 @login_required
 def index():
     '''Тестовое представления главной страницы'''
+
     try:
         user = current_user.name
+        id = current_user.id
         return render_template('base_template.html', name=user)
     except Exception as error:
-        return render_template('base_template.html', name=f'что-то пошло не так{error}')
+        return render_template(
+            'base_template.html',
+            name=f'что-то пошло не так{error}'
+        )
 
 
 @app.route("/autorization", methods=['GET', 'POST'])
 def autorization():
-    '''Представление авторизации'''
+    '''Представление авторизации.
+    Включает проверку авторизации пользователя, валидации формы,
+    активации пользователя, соответствия пароля,
+    фиксация времени подключения пользователя к сессии'''
+
     form = AutorizationForm()
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -69,6 +104,17 @@ def autorization():
                 return redirect(url_for('autorization'))
             else:
                 if check_password_hash(user.password, password):
+                    ip = request.environ.get(
+                        'HTTP_X_FORWARDED_FOR',
+                        request.remote_addr
+                    )
+                    ses = Sessions(
+                        user_id=user.id,
+                        ip=int(ipaddress.IPv4Address(ip)),
+                        date_start=time.time()
+                    )
+                    session.add(ses)
+                    session.commit()
                     login_user(user, remember=True)
                     return redirect(url_for('index'))
                 else:
@@ -80,7 +126,11 @@ def autorization():
 
 @app.route("/registration", methods=['GET', 'POST'])
 def registration():
-    '''Представление регистрации'''
+    '''Представление регистрации.
+    Включает в себя проверку аворизации пользователя, валидации формы,
+    наличия в бд пользователей с аналогичными полями(email, tg, phone).
+    После успешной проверки отправляет на почту ссылку для активации.'''
+
     form = RegistrationForm()
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -125,9 +175,19 @@ def registration():
                         )
                         session.add(new_user)
                         session.commit()
-                        body_text = " Ссылка для активации аккаунта: https://profitomer.ru/activation?code=" + a_code
-                        mail.send_email("Profitomer.ru активация аккаунта", email, body_text)
-                        return render_template('div_after_registration.html', email=email)
+                        link = (
+                            f'https://profitomer.ru/activation?code={a_code}'
+                        )
+                        body_text = f'Ссылка для активации аккаунта: {link}'
+                        mail.send_email(
+                            "Profitomer.ru активация аккаунта",
+                            email,
+                            body_text
+                        )
+                        return render_template(
+                            'div_after_registration.html',
+                            email=email
+                        )
                     except Exception:
                         session.rollback()
                         flash('Ошибка базы данных. Попробуйте позже', 'error')
@@ -136,11 +196,11 @@ def registration():
             return render_template('registration.html', form=form)
 
 
-
-
 @app.route("/activation", methods=['GET', 'POST'])
 def activation():
-    '''Представление активации аккаунта пользователя'''
+    '''Представление активации аккаунта пользователя.
+    Включает в себя проверку соответствия кода активации.'''
+
     if request.args.get('code'):
         a_code = request.args.get('code')
         user = session.query(Users).filter_by(a_code=a_code).first()
@@ -162,7 +222,19 @@ def activation():
 @app.route('/logout')
 @login_required
 def logout():
-    '''Представление выхода из профиля'''
+    '''Представление выхода из профиля.
+    Включает в себя определение текущей сессии в
+    таблице sessions и добавление в запись
+    времени окончания сессии'''
+
+    user = current_user
+    ses = session.query(Sessions).filter_by(
+        user_id=user.id,
+        date_end=None
+    ).first()
+    if ses:
+        ses.date_end = time.time()
+        session.commit()
     logout_user()
     flash('Вы вышли из своего профиля', 'info')
     return redirect(url_for('index'))
@@ -171,7 +243,9 @@ def logout():
 @app.route('/tax_rate_change', methods=['GET', 'POST'])
 @login_required
 def change_tax_rate():
-    '''Представление изменения налоговой ставки'''
+    '''Представление изменения налоговой ставки.
+    Включает в себя проверку валидации формы.'''
+
     form = TaxRateForm()
     if request.method == 'POST':
         if form.validate_on_submit():
@@ -230,7 +304,11 @@ def set_new_password():
                     user.password = generate_password_hash(new_password)
                     session.commit()
                     body_text = f'Ваш новый пароль: {new_password}'
-                    mail.send_email("Profitomer.ru смена пароля", email, body_text)
+                    mail.send_email(
+                        "Profitomer.ru смена пароля",
+                        email,
+                        body_text
+                    )
                     flash('Пароль был успешно изменен')
                     return redirect(url_for('autorization'))
                 except Exception:
