@@ -1,3 +1,5 @@
+'''Модуль содержит модели для работы с базой данных.'''
+
 import sqlalchemy as db
 from flask_login import UserMixin
 
@@ -5,6 +7,9 @@ from db_config import Base, engine
 
 
 class Users(Base, UserMixin):
+    '''Модель представляет таблицу users в
+    базе данных и хранит информацию о пользователях.'''
+    
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -28,9 +33,9 @@ class Sessions(Base):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
-    ip = db.Column(db.String(45), nullable=False)
-    date_start = db.Column(db.DateTime, nullable=False)
-    date_end = db.Column(db.DateTime, nullable=True)
+    ip = db.Column(db.Integer, nullable=False)
+    date_start = db.Column(db.Integer)
+    date_end = db.Column(db.Integer)
 
 
 Base.metadata.create_all(engine)
