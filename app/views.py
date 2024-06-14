@@ -1,20 +1,7 @@
-'''Модуль содержит основную логику работы приложения.
-Включает в себя маршруты для:
--перехода на главную страницу(необходим для тестирования);
--регистрации пользователей;
--авторизации пользователей;
--смены пароля профиля зная существующий пароль;
--смены пароля профиля не знаю существующего пароля;
--активации профиля;
--выхода из профиля;
--изменение величины налоговой ставки'''
-
-import os
 import time
 import ipaddress
 
 from flask import (
-    Flask,
     redirect,
     render_template,
     request,
@@ -26,16 +13,15 @@ from werkzeug.security import (
     check_password_hash
 )
 from flask_login import (
-    LoginManager,
     current_user,
     login_user,
     login_required,
     logout_user
 )
-from dotenv import load_dotenv
 
-from models import Users, Sessions
-from forms import (
+from app import app
+from app.models import Users, Sessions
+from .forms import (
     AutorizationForm,
     RegistrationForm,
     ChangePasswordForm,
@@ -46,23 +32,7 @@ from db_config import session
 from sg_maillib import SG_mail
 
 
-load_dotenv()
-
-
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
-login_manager = LoginManager(app)
-login_manager.login_view = 'autorization'
-
 mail = SG_mail()
-
-
-@login_manager.user_loader
-def load_user(users_id):
-    '''Загрузка пользователя по идентификатору'''
-
-    return session.query(Users).get(users_id)
 
 
 @app.route('/')
@@ -73,7 +43,7 @@ def index():
     try:
         user = current_user.name
         id = current_user.id
-        return render_template('base_template.html', name=user)
+        return render_template('base_template.html', name=id)
     except Exception as error:
         return render_template(
             'base_template.html',
@@ -319,7 +289,3 @@ def set_new_password():
                 return render_template('set_new_password.html', form=form)
     else:
         return render_template('set_new_password.html', form=form)
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
