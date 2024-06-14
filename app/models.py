@@ -37,6 +37,8 @@ class Users(Base, UserMixin):
 
 
 class Sessions(Base):
+    '''Модель представляет таблицу sessions в
+    базе данных и хранит информацию о входе и выходе пользователей'''
     __tablename__ = "sessions"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -44,6 +46,3 @@ class Sessions(Base):
     ip = db.Column(db.Integer, nullable=False)
     date_start = db.Column(db.Integer)
     date_end = db.Column(db.Integer)
-
-
-Base.metadata.create_all(engine)

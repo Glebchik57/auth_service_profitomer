@@ -234,6 +234,9 @@ def change_tax_rate():
 @app.route("/change_password", methods=['GET', 'POST'])
 @login_required
 def change_password():
+    '''Представление изменения пароля аутентификацированного пользователя.
+    Включает в себя проверку валидации формы и правильного введения пароля.'''
+
     form = ChangePasswordForm()
     if request.method == 'POST':
         if form.validate_on_submit():
@@ -263,6 +266,10 @@ def change_password():
 
 @app.route('/new-password', methods=['GET', 'POST'])
 def set_new_password():
+    '''Представление изменения пароля неаутентификацированного пользователя.
+    Включает в себя проверку валидации формы и существования пользователя
+    с указанным email. Самостоятельно генерирует новый пароль и направляет
+    на указанный email'''
     form = SetPasswordForm()
     if request.method == 'POST':
         if form.validate_on_submit():
